@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obstetri-Desafío: Misión Guardia Médica</title>
+  <style>
+    :root {
+      --primary: #8b5cf6;
+      --primary-dark: #6d28d9;
+      --accent: #f59e0b;
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --text: #1f2937;
+      --correct: #10b981;
+      --incorrect: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #eef2ff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      color: var(--text);
+    }
+
+    .game-container {
+      background: var(--card);
+      border-radius: 24px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+      max-width: 600px;
+      width: 100%;
+      padding: 24px;
+      position: relative;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      background: #f8fafc;
+      padding: 12px 16px;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    .stat-val { font-size: 1.1rem; font-weight: 800; color: var(--primary-dark); }
+
+    .lifelines {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .lifeline-btn {
+      flex: 1;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .lifeline-btn:hover:not(:disabled) { background: #e2e8f0; }
+    .lifeline-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .question-box {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 18px;
+      line-height: 1.4;
+      color: #0f172a;
+    }
+
+    .options-grid { display: flex; flex-direction: column; gap: 10px; }
+
+    .option-btn {
+      background: #ffffff;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-size: 0.95rem;
+      text-align: left;
+      cursor: pointer;
+      font-weight: 600;
+      color: #334155;
+      transition: all 0.2s;
+    }
+
+    .option-btn:hover:not(:disabled) {
+      border-color: var(--primary);
+      background: #f5f3ff;
+    }
+
+    .option-btn.correct { background: #d1fae5 !important; border-color: var(--correct) !important; color: #065f46; }
+    .option-btn.incorrect { background: #fee2e2 !important; border-color: var(--incorrect) !important; color: #991b1b; }
+    .option-btn.hidden { opacity: 0; pointer-events: none; }
+
+    .reward-toast {
+      background: #fef3c7;
+      border: 1px solid var(--accent);
+      color: #92400e;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-top: 14px;
+      display: none;
+      text-align: center;
+    }
+
+    .exp-box {
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      font-size: 0.88rem;
+      display: none;
+    }
+
+    .next-btn {
+      margin-top: 18px;
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+    }
+
+    .next-btn:hover { background: var(--primary-dark); }
+
+    .badge-tray {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-around;
+    }
+
+    .badge-icon {
+      font-size: 1.8rem;
+      filter: grayscale(1);
+      opacity: 0.3;
+      transition: all 0.3s;
+    }
+
+    .badge-icon.unlocked {
+      filter: grayscale(0);
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    .results { text-align: center; display: none; }
+    .results h2 { font-size: 1.8rem; margin-bottom: 12px; }
+    .results-score { font-size: 2.5rem; font-weight: 800; color: var(--primary); margin: 10px 0; }
+    .badges-summary { display: flex; justify-content: center; gap: 12px; margin: 16px 0; font-size: 2rem; }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <div id="quiz-screen">
+      
+      <!-- BARRA DE ESTADÍSTICAS -->
+      <div class="top-bar">
+        <div class="stat-item">
+          <span class="stat-label">Puntos</span>
+          <span class="stat-val" id="score">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Racha 🔥</span>
+          <span class="stat-val" id="streak">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Rango</span>
+          <span class="stat-val" id="rank" style="font-size: 0.85rem;">Estudiante</span>
+        </div>
+      </div>
+
+      <!-- RECOMPENSAS / COMODINES -->
+      <div class="lifelines">
+        <button class="lifeline-btn" id="btn-5050" onclick="use5050()">
+          ⚡ Comodín 50:50 (<span id="count-5050">1</span>)
+        </button>
+        <button class="lifeline-btn" id="btn-hint" onclick="useHint()">
+          💡 Pista Docente (<span id="count-hint">1</span>)
+        </button>
+      </div>
+
+      <!-- PREGUNTA -->
+      <div class="question-box" id="question-text">Cargando desafío...</div>
+      <div class="options-grid" id="options-container"></div>
+
+      <!-- NOTIFICACIÓN DE RECOMPENSA Y EXPLICACIÓN -->
+      <div class="reward-toast" id="reward-toast"></div>
+      <div class="exp-box" id="exp-box"></div>
+
+      <button class="next-btn" id="next-btn" onclick="nextQuestion()">Siguiente Desafío ➔</button>
+
+      <!-- TRAY DE INSIGNIAS RECOMPENSA -->
+      <div class="badge-tray">
+        <span class="badge-icon" id="badge-1" title="Insignia Doppler (Racha de 3)">🎧</span>
+        <span class="badge-icon" id="badge-2" title="Insignia Guardiana (500 pts)">🛡️</span>
+        <span class="badge-icon" id="badge-3" title="Insignia Maestro del Parto (1000 pts)">🏆</span>
+      </div>
+    </div>
+
+    <!-- PANTALLA DE RESULTADOS -->
+    <div class="results" id="results-screen">
+      <h2>🎉 ¡Guardia Finalizada!</h2>
+      <p>Has completado todos los desafíos del turno.</p>
+      <div class="results-score" id="final-score">0 PTS</div>
+      <p><strong>Logros y Recompensas Desbloqueadas:</strong></p>
+      <div class="badges-summary" id="badges-summary"></div>
+      <button class="next-btn" style="display:inline-block;" onclick="restartGame()">Iniciar Nueva Guardia</button>
+    </div>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        q: "🚨 DESAFÍO 1: Paciente de 38 semanas llega con contracciones. ¿Cuál es el rango normal de la Frecuencia Cardíaca Fetal (FCF)?",
+        options: ["60 - 100 lpm", "120 - 160 lpm", "180 - 220 lpm", "90 - 110 lpm"],
+        correct: 1,
+        hint: "Es un ritmo rápido, casi el doble de un adulto en reposo.",
+        exp: "💡 La FCF basal normal en reposo oscila entre 120 y 160 latidos por minuto."
+      },
+      {
+        q: "🩸 DESAFÍO 2: ¿Cuál es la principal causa de Hemorragia Posparto inmediata (Regla de las 4 T)?",
+        options: ["Trauma del canal de parto", "Atonía Uterina (Tono)", "Tejido retenido", "Trombofilias"],
+        correct: 1,
+        exp: "💡 El 'Tono' (Atonía uterina) representa el 70% de las hemorragias posparto."
+      },
+      {
+        q: "👶 DESAFÍO 3: Evaluación de APGAR al 1er minuto da score de 9. ¿Cuál es la conducta correcta?",
+        options: ["Reanimación neonatal inmediata", "Contacto piel con piel e inicio de lactancia", "Traslado a UCI Neonatal", "Incubadora por 4 horas"],
+        correct: 1,
+        exp: "💡 Un APGAR ≥ 7 indica un recién nacido vigoroso que se beneficia del contacto precoz piel con piel."
+      },
+      {
+        q: "🤰 DESAFÍO 4: ¿Qué maniobra de Leopold determina si la presentación fetal está encajada en la pelvis?",
+        options: ["Primera maniobra", "Segunda maniobra", "Tercera maniobra", "Cuarta maniobra"],
+        correct: 3,
+        hint: "Se realiza mirando hacia los pies de la paciente.",
+        exp: "💡 La cuarta maniobra de Leopold evalúa el grado de encajamiento de la presentación en la pelvis."
+      },
+      {
+        q: "💊 DESAFÍO 5: ¿Qué fármaco de primera línea se administra para prevenir las convulsiones en la Preeclampsia Grave?",
+        options: ["Labetalol", "Sulfato de Magnesio", "Nifedipino", "Oxitocina"],
+        correct: 1,
+        exp: "💡 El Sulfato de Magnesio es el anticonvulsivante de elección para prevención y tratamiento de eclampsia."
+      },
+      {
+        q: "⏱️ DESAFÍO 6: ¿Cómo se llama el período del parto que abarca desde la expulsión del bebé hasta la salida de la placenta?",
+        options: ["Dilatación", "Expulsivo", "Alumbramiento", "Puerperio inmediato"],
+        correct: 2,
+        exp: "💡 El Alumbramiento es el tercer período del parto."
+      }
+    ];
+
+    let currentQ = 0;
+    let score = 0;
+    let streak = 0;
+    let lifelines = { '5050': 1, 'hint': 1 };
+    let unlockedBadges = new Set();
+
+    function loadQuestion() {
+      const q = questions[currentQ];
+      document.getElementById("question-text").innerText = q.q;
+      document.getElementById("exp-box").style.display = "none";
+      document.getElementById("reward-toast").style.display = "none";
+      document.getElementById("next-btn").style.display = "none";
+
+      const container = document.getElementById("options-container");
+      container.innerHTML = "";
+
+      q.options.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "option-btn";
+        btn.innerText = opt;
+        btn.onclick = () => selectAnswer(idx);
+        container.appendChild(btn);
+      });
+
+      // Update lifelines buttons status
+      document.getElementById("btn-5050").disabled = lifelines['5050'] <= 0;
+      document.getElementById("btn-hint").disabled = lifelines['hint'] <= 0;
+    }
+
+    function selectAnswer(idx) {
+      const q = questions[currentQ];
+      const btns = document.querySelectorAll(".option-btn");
+
+      btns.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === q.correct) btn.classList.add("correct");
+        if (i === idx && idx !== q.correct) btn.classList.add("incorrect");
+      });
+
+      if (idx === q.correct) {
+        streak++;
+        let pointsGained = 100 + (streak * 20); // Multiplicador por racha
+        score += pointsGained;
+        showToast(`¡Respuesta Correcta! +${pointsGained} PTS (Racha 🔥 x${streak})`);
+      } else {
+        streak = 0;
+        showToast("❌ Respuesta incorrecta. ¡La racha se ha reiniciado!");
+      }
+
+      updateStats();
+      checkBadges();
+
+      document.getElementById("exp-box").innerText = q.exp;
+      document.getElementById("exp-box").style.display = "block";
+      document.getElementById("next-btn").style.display = "block";
+    }
+
+    function updateStats() {
+      document.getElementById("score").innerText = score;
+      document.getElementById("streak").innerText = streak;
+
+      let rank = "Estudiante";
+      if (score >= 300) rank = "Interno/a";
+      if (score >= 600) rank = "Residente";
+      if (score >= 900) rank = "Especialista 🏆";
+      document.getElementById("rank").innerText = rank;
+    }
+
+    function checkBadges() {
+      if (streak >= 3 && !unlockedBadges.has("badge-1")) {
+        unlockedBadges.add("badge-1");
+        document.getElementById("badge-1").classList.add("unlocked");
+        showToast("🎁 ¡RECOMPENSA: Desbloqueaste la Insignia Doppler por Racha!");
+      }
+      if (score >= 400 && !unlockedBadges.has("badge-2")) {
+        unlockedBadges.add("badge-2");
+        document.getElementById("badge-2").classList.add("unlocked");
+        showToast("🎁 ¡RECOMPENSA: Desbloqueaste la Insignia Guardiana!");
+      }
+      if (score >= 800 && !unlockedBadges.has("badge-3")) {
+        unlockedBadges.add("badge-3");
+        document.getElementById("badge-3").classList.add("unlocked");
+        showToast("🏆 ¡RECOMPENSA: Insignia Gran Maestro del Parto!");
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("reward-toast");
+      toast.innerText = msg;
+      toast.style.display = "block";
+    }
+
+    function use5050() {
+      if (lifelines['5050'] <= 0) return;
+      lifelines['5050']--;
+      document.getElementById("count-5050").innerText = lifelines['5050'];
+      document.getElementById("btn-5050").disabled = true;
+
+      const q = questions[currentQ];
+      const btns = document.querySelectorAll(".option-btn");
+      let hidden = 0;
+
+      btns.forEach((btn, idx) => {
+        if (idx !== q.correct && hidden < 2) {
+          btn.classList.add("hidden");
+          hidden++;
+        }
+      });
+    }
+
+    function useHint() {
+      if (lifelines['hint'] <= 0) return;
+      lifelines['hint']--;
+      document.getElementById("count-hint").innerText = lifelines['hint'];
+      document.getElementById("btn-hint").disabled = true;
+
+      const q = questions[currentQ];
+      showToast(`💡 Pista del Especialista: ${q.hint || "Revisa las prioridades de soporte vital."}`);
+    }
+
+    function nextQuestion() {
+      currentQ++;
+      if (currentQ < questions.length) {
+        loadQuestion();
+      } else {
+        showResults();
+      }
+    }
+
+    function showResults() {
+      document.getElementById("quiz-screen").style.display = "none";
+      document.getElementById("results-screen").style.display = "block";
+      document.getElementById("final-score").innerText = `${score} PTS`;
+
+      const summary = document.getElementById("badges-summary");
+      summary.innerHTML = "";
+      if (unlockedBadges.size === 0) {
+        summary.innerHTML = "<p style='font-size:1rem; color:#64748b;'>No lograste desbloquear insignias en este turno. ¡Sigue practicando!</p>";
+      } else {
+        unlockedBadges.forEach(id => {
+          const icon = document.getElementById(id).innerText;
+          summary.innerHTML += `<span>${icon}</span>`;
+        });
+      }
+    }
+
+    function restartGame() {
+      currentQ = 0;
+      score = 0;
+      streak = 0;
+      lifelines = { '5050': 1, 'hint': 1 };
+      unlockedBadges.clear();
+      document.querySelectorAll(".badge-icon").forEach(b => b.classList.remove("unlocked"));
+      document.getElementById("count-5050").innerText = "1";
+      document.getElementById("count-hint").innerText = "1";
+      document.getElementById("quiz-screen").style.display = "block";
+      document.getElementById("results-screen").style.display = "none";
+      updateStats();
+      loadQuestion();
+    }
+
+    loadQuestion();
+  </script>
+</body>
+</html>
